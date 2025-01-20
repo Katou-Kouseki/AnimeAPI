@@ -16,7 +16,7 @@ const (
 	// DynamicDetailURL 当前动态信息,一个card
 	DynamicDetailURL = "https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail?dynamic_id=%v"
 	// MemberCardURL 个人信息
-	MemberCardURL = "https://account.bilibili.com/api/member/getCardByMid?mid=%v"
+	MemberCardURL = "https://api.bilibili.com/x/web-interface/card?mid=%v"
 	// ArticleInfoURL 查看专栏信息
 	ArticleInfoURL = "https://api.bilibili.com/x/article/viewinfo?id=%v"
 	// CVURL b站专栏前缀
@@ -40,11 +40,17 @@ const (
 	// LiveListURL 获得直播状态
 	LiveListURL = "https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids"
 	// DanmakuAPI 弹幕网获得用户弹幕api
-	DanmakuAPI = "https://danmakus.com/api/search/user/detail?uid=%v&pagenum=%v&pagesize=5"
+	DanmakuAPI = "https://ukamnads.icu/api/v2/user?uId=%v&pageNum=%v&pageSize=5&target=-1&useEmoji=true"
 	// DanmakuURL 弹幕网链接
 	DanmakuURL = "https://danmakus.com/user/%v"
 	// AllGuardURL 查询所有舰长,提督,总督
 	AllGuardURL = "https://api.vtbs.moe/v1/guard/all"
+	// VideoSummaryURL AI视频总结
+	VideoSummaryURL = "https://api.bilibili.com/x/web-interface/view/conclusion/get?bvid=%v&cid=%v&up_mid=%v"
+	// NavURL 导航URL
+	NavURL = "https://api.bilibili.com/x/web-interface/nav"
+	// ConstUA 浏览器UA
+	ConstUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0"
 )
 
 // DynamicCard 总动态结构体,包括desc,card
@@ -79,6 +85,7 @@ type Card struct {
 	AID             any      `json:"aid"`
 	BvID            any      `json:"bvid"`
 	Dynamic         any      `json:"dynamic"`
+	CID             int      `json:"cid"`
 	Pic             string   `json:"pic"`
 	Title           string   `json:"title"`
 	ID              int      `json:"id"`
@@ -265,24 +272,31 @@ type MedalInfo struct {
 	MedalColorBorder int64  `json:"medal_color_border"`
 }
 
+// Medal ...
 type Medal struct {
 	Uname     string `json:"target_name"`
 	MedalInfo `json:"medal_info"`
 }
 
+// MedalSorter ...
 type MedalSorter []Medal
 
+// Len ...
 func (m MedalSorter) Len() int {
 	return len(m)
 }
+
+// Swap ...
 func (m MedalSorter) Swap(i, j int) {
 	m[i], m[j] = m[j], m[i]
 }
+
+// Less ...
 func (m MedalSorter) Less(i, j int) bool {
 	return m[i].Level > m[j].Level
 }
 
-// vtb信息
+// VtbDetail vtb信息
 type VtbDetail struct {
 	Mid      int    `json:"mid"`
 	Uname    string `json:"uname"`
@@ -304,62 +318,111 @@ type GuardUser struct {
 
 // Danmakusuki 弹幕网结构体
 type Danmakusuki struct {
-	Code    int64  `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		Data []struct {
-			Channel struct {
-				Name      string `json:"name"`
-				IsLiving  bool   `json:"isLiving"`
-				UID       int64  `json:"uId"`
-				RoomID    int64  `json:"roomId"`
-				FaceURL   string `json:"faceUrl"`
-				LiveCount int64  `json:"liveCount"`
-			} `json:"channel"`
-			Live struct {
-				LiveID        string  `json:"liveId"`
-				Title         string  `json:"title"`
-				IsFinish      bool    `json:"isFinish"`
-				CoverURL      string  `json:"coverUrl"`
-				StartDate     int64   `json:"startDate"`
-				StopDate      int64   `json:"stopDate"`
-				DanmakusCount int64   `json:"danmakusCount"`
-				TotalIncome   float64 `json:"totalIncome"`
-				WatchCount    int64   `json:"watchCount"`
-			} `json:"live"`
-			Danmakus []struct {
-				Name     string  `json:"name"`
-				Type     int64   `json:"type"`
-				UID      int64   `json:"uId"`
-				SendDate int64   `json:"sendDate"`
-				Price    float64 `json:"price"`
-				Message  string  `json:"message"`
-			} `json:"danmakus"`
+		Total    int  `json:"total"`
+		PageNum  int  `json:"pageNum"`
+		PageSize int  `json:"pageSize"`
+		HasMore  bool `json:"hasMore"`
+		Data     struct {
+			Records []struct {
+				Channel struct {
+					UID                  int           `json:"uId"`
+					UName                string        `json:"uName"`
+					RoomID               int           `json:"roomId"`
+					FaceURL              string        `json:"faceUrl"`
+					FrameURL             string        `json:"frameUrl"`
+					IsLiving             bool          `json:"isLiving"`
+					Title                string        `json:"title"`
+					Tags                 []interface{} `json:"tags"`
+					LastLiveDate         int64         `json:"lastLiveDate"`
+					LastLiveDanmakuCount int           `json:"lastLiveDanmakuCount"`
+					TotalDanmakuCount    int           `json:"totalDanmakuCount"`
+					TotalIncome          float64       `json:"totalIncome"`
+					TotalLiveCount       int           `json:"totalLiveCount"`
+					TotalLiveSecond      int           `json:"totalLiveSecond"`
+					AddDate              string        `json:"addDate"`
+					CommentCount         int           `json:"commentCount"`
+					LastLiveIncome       float64       `json:"lastLiveIncome"`
+				} `json:"channel"`
+				Live struct {
+					LiveID           string  `json:"liveId"`
+					IsFinish         bool    `json:"isFinish"`
+					IsFull           bool    `json:"isFull"`
+					ParentArea       string  `json:"parentArea"`
+					Area             string  `json:"area"`
+					CoverURL         string  `json:"coverUrl"`
+					DanmakusCount    int     `json:"danmakusCount"`
+					StartDate        int64   `json:"startDate"`
+					StopDate         int64   `json:"stopDate"`
+					Title            string  `json:"title"`
+					TotalIncome      float64 `json:"totalIncome"`
+					WatchCount       int     `json:"watchCount"`
+					LikeCount        int     `json:"likeCount"`
+					PayCount         int     `json:"payCount"`
+					InteractionCount int     `json:"interactionCount"`
+					MaxOnlineCount   int     `json:"maxOnlineCount"`
+				} `json:"live"`
+				Danmakus []struct {
+					UID      int     `json:"uId"`
+					UName    string  `json:"uName"`
+					Type     int64   `json:"type"`
+					SendDate int64   `json:"sendDate"`
+					Message  string  `json:"message"`
+					Price    float64 `json:"price"`
+				} `json:"danmakus"`
+			} `json:"records"`
 		} `json:"data"`
-		Total    int64 `json:"total"`
-		PageNum  int64 `json:"pageNum"`
-		PageSize int64 `json:"pageSize"`
-		HasMore  bool  `json:"hasMore"`
 	} `json:"data"`
 }
 
-// 配置结构体
+// VideoSummary AI视频总结结构体
+type VideoSummary struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	TTL     int    `json:"ttl"`
+	Data    struct {
+		Code        int `json:"code"`
+		ModelResult struct {
+			ResultType int    `json:"result_type"`
+			Summary    string `json:"summary"`
+			Outline    []struct {
+				Title       string `json:"title"`
+				PartOutline []struct {
+					Timestamp int    `json:"timestamp"`
+					Content   string `json:"content"`
+				} `json:"part_outline"`
+				Timestamp int `json:"timestamp"`
+			} `json:"outline"`
+		} `json:"model_result"`
+		Stid       string `json:"stid"`
+		Status     int    `json:"status"`
+		LikeNum    int    `json:"like_num"`
+		DislikeNum int    `json:"dislike_num"`
+	} `json:"data"`
+}
+
+// CookieConfig 配置结构体
 type CookieConfig struct {
 	BilibiliCookie string `json:"bilibili_cookie"`
 	file           string
 }
 
+// NewCookieConfig ...
 func NewCookieConfig(file string) *CookieConfig {
 	return &CookieConfig{
 		file: file,
 	}
 }
 
+// Set ...
 func (cfg *CookieConfig) Set(cookie string) (err error) {
 	cfg.BilibiliCookie = cookie
 	return cfg.Save()
 }
 
+// Load ...
 func (cfg *CookieConfig) Load() (cookie string, err error) {
 	if cfg.BilibiliCookie != "" {
 		cookie = cfg.BilibiliCookie
@@ -379,6 +442,7 @@ func (cfg *CookieConfig) Load() (cookie string, err error) {
 	return
 }
 
+// Save ...
 func (cfg *CookieConfig) Save() (err error) {
 	reader, err := os.Create(cfg.file)
 	if err != nil {

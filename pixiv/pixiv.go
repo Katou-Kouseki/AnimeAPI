@@ -1,3 +1,4 @@
+// Package pixiv pixiv相关api
 package pixiv
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// 插画结构体
+// Illust 插画结构体
 type Illust struct {
 	Pid         int64    `db:"pid"`
 	Title       string   `db:"title"`
@@ -19,7 +20,7 @@ type Illust struct {
 	ImageUrls   []string `db:"image_urls"`
 	AgeLimit    string   `db:"age_limit"`
 	CreatedTime string   `db:"created_time"`
-	UserId      int64    `db:"user_id"`
+	UserID      int64    `db:"user_id"`
 	UserName    string   `db:"user_name"`
 }
 
@@ -55,15 +56,24 @@ func Works(id int64) (i *Illust, err error) {
 		for j := 0; j < int(json.Get("pageCount").Int()); j++ {
 			i.ImageUrls = append(i.ImageUrls, fmt.Sprintf(u, j))
 		}
+	} else { // try third-party API
+		g, err := Cat(id)
+		if err == nil {
+			if g.Multiple {
+				i.ImageUrls = g.OriginalUrls
+			} else {
+				i.ImageUrls = []string{g.OriginalURL}
+			}
+		}
 	}
 	i.AgeLimit = ageLimit
 	i.CreatedTime = json.Get("createDate").Str
-	i.UserId = json.Get("userId").Int()
+	i.UserID = json.Get("userId").Int()
 	i.UserName = json.Get("userName").Str
 	return i, err
 }
 
-// 搜索元素
+// RankValue 搜索元素
 type RankValue struct {
 	/* required, possible rank modes:
 		- daily (default)
@@ -91,14 +101,14 @@ type RankValue struct {
 	Date string
 }
 
-// 画作排行榜
+// Rank 画作排行榜
 func (value RankValue) Rank() (r [18]int, err error) {
 	if value.Mode == "male_r18" || value.Mode == "male" || value.Mode == "female_r18" || value.Mode == "female" {
 		value.Type = "all"
 	}
 	body, err := get(fmt.Sprintf("https://www.pixiv.net/touch/ajax/ranking/illust?mode=%s&type=%s&page=%d&date=%s", value.Mode, value.Type, value.Page, value.Date))
 	i := 0
-	gjson.Get(binary.BytesToString(body), "body.ranking").ForEach(func(key, value gjson.Result) bool {
+	gjson.Get(binary.BytesToString(body), "body.ranking").ForEach(func(_, value gjson.Result) bool {
 		r[i] = int(value.Get("illustId").Int())
 		i++
 		return i != 18
@@ -112,5 +122,6 @@ func get(link string) ([]byte, error) {
 		web.NewPixivClient(), link, "GET",
 		"https://www.pixiv.net/",
 		"Mozilla/5.0 (Windows NT 6.1; WOW64; rv:6.0) Gecko/20100101 Firefox/6.0",
+		nil,
 	)
 }

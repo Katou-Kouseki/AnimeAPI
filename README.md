@@ -6,6 +6,8 @@
 ascii2d 搜图
 ## bilibili
 b站相关API
+## emozi
+颜文字抽象转写
 ## huggingface
 huggingface API
 ## neteasemusic
@@ -14,14 +16,14 @@ huggingface API
 二次元 AI tag 作画
 ## nsfw
 图片合规性审查
+## niu
+niu
 ## pixiv
 P站解析与图片下载
 ## qzone
 QQ空间API
 ## runoob
 菜鸟教程代码运行API
-## scale
-采用[叔叔的模型](https://github.com/bilibili/ailab)放大二次元图片
 ## setu
 供各个插件使用的随机图片池
 ## shindanmaker

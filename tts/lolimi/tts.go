@@ -1,10 +1,10 @@
-package genshin
+// Package lolimi https://api.lolimi.cn/
+package lolimi
 
 import (
 	goBinary "encoding/binary"
 	"fmt"
 	"hash/crc64"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	modeName  = "原神"
-	cachePath = "data/gsvits/"
+	modeName  = "桑帛云"
+	cachePath = "data/lolimi/"
 )
 
 var (
@@ -33,52 +33,56 @@ func init() {
 	}
 }
 
-// Genshin 原神类
-type Genshin struct {
+// Lolimi 桑帛云 API
+type Lolimi struct {
 	mode int
 	name string
-	code string
 }
 
 // String 服务名
-func (tts *Genshin) String() string {
+func (tts *Lolimi) String() string {
 	return modeName + tts.name
 }
 
-// NewGenshin 新的原神语音
-func NewGenshin(mode int, code string) *Genshin {
-	return &Genshin{
+// NewLolimi 新的桑帛云语音
+func NewLolimi(mode int) *Lolimi {
+	return &Lolimi{
 		mode: mode,
 		name: SoundList[mode],
-		code: code,
 	}
 }
 
 // Speak 返回音频 url
-func (tts *Genshin) Speak(uid int64, text func() string) (fileName string, err error) {
+func (tts *Lolimi) Speak(_ int64, text func() string) (fileName string, err error) {
 	t := text()
-	u := fmt.Sprintf(CNAPI, tts.mode, url.QueryEscape(
-		// 将数字转文字
-		re.ReplaceAllStringFunc(t, func(s string) string {
-			f, err := strconv.ParseFloat(s, 64)
-			if err != nil {
-				logrus.Errorln("[tts]", err)
-				return s
-			}
-			return numcn.EncodeFromFloat64(f)
-		}),
-	), tts.code)
-	var b [8]byte
+	// 将数字转文字
+	t = re.ReplaceAllStringFunc(t, func(s string) string {
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			logrus.Errorln("[tts]", err)
+			return s
+		}
+		return numcn.EncodeFromFloat64(f)
+	})
+	var (
+		b      [8]byte
+		data   []byte
+		ttsURL string
+	)
 	goBinary.LittleEndian.PutUint64(b[:], uint64(tts.mode))
 	h := crc64.New(crc64.MakeTable(crc64.ISO))
 	h.Write(b[:])
-	_, _ = h.Write(binary.StringToBytes(u))
-	n := fmt.Sprintf(cachePath+"%016x.ogg", h.Sum64())
+	ttsURL, err = TTS(tts.name, t)
+	if err != nil {
+		return
+	}
+	_, _ = h.Write(binary.StringToBytes(ttsURL))
+	n := fmt.Sprintf(cachePath+"%016x.wav", h.Sum64())
 	if file.IsExist(n) {
 		fileName = "file:///" + file.BOTPATH + "/" + n
 		return
 	}
-	data, err := web.GetData(u)
+	data, err = web.GetData(ttsURL)
 	if err != nil {
 		return
 	}

@@ -36,7 +36,7 @@ const (
 // Ptqrshow 获得登录二维码
 func Ptqrshow() (data []byte, qrsig string, ptqrtoken string, err error) {
 	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -66,7 +66,7 @@ func Ptqrshow() (data []byte, qrsig string, ptqrtoken string, err error) {
 // Ptqrlogin 登录回调
 func Ptqrlogin(qrsig string, qrtoken string) (data []byte, cookie string, err error) {
 	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -92,7 +92,7 @@ func Ptqrlogin(qrsig string, qrtoken string) (data []byte, cookie string, err er
 // LoginRedirect 登录成功回调
 func LoginRedirect(redirectURL string) (cookie string, err error) {
 	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -232,7 +232,6 @@ func (m *Manager) UploadImage(base64img string) (result UploadImageVo, err error
 
 // EmotionPublish 发送说说,content是文字,base64imgList是base64图片
 func (m *Manager) EmotionPublish(content string, base64imgList []string) (result EmotionPublishVo, err error) {
-
 	var (
 		uir         UploadImageVo
 		picBo       string

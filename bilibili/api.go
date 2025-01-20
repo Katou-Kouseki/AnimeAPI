@@ -13,9 +13,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-var (
-	ErrAPINeedCookie = errors.New("api need cookie")
-)
+// ErrAPINeedCookie ...
+var ErrAPINeedCookie = errors.New("api need cookie")
 
 // SearchUser 查找b站用户
 func SearchUser(cookiecfg *CookieConfig, keyword string) (r []SearchResult, err error) {
@@ -74,9 +73,19 @@ func LoadDynamicDetail(str string) (card DynamicCard, err error) {
 }
 
 // GetDynamicDetail 用动态id查动态信息
-func GetDynamicDetail(dynamicIDStr string) (card DynamicCard, err error) {
+func GetDynamicDetail(cookiecfg *CookieConfig, dynamicIDStr string) (card DynamicCard, err error) {
 	var data []byte
-	data, err = web.GetData(fmt.Sprintf(DynamicDetailURL, dynamicIDStr))
+	data, err = web.RequestDataWithHeaders(web.NewDefaultClient(), fmt.Sprintf(DynamicDetailURL, dynamicIDStr), "GET", func(req *http.Request) error {
+		if cookiecfg != nil {
+			cookie := ""
+			cookie, err = cookiecfg.Load()
+			if err != nil {
+				return err
+			}
+			req.Header.Add("cookie", cookie)
+		}
+		return nil
+	}, nil)
 	if err != nil {
 		return
 	}
@@ -86,11 +95,11 @@ func GetDynamicDetail(dynamicIDStr string) (card DynamicCard, err error) {
 
 // GetMemberCard 获取b站个人详情
 func GetMemberCard(uid any) (result MemberCard, err error) {
-	data, err := web.GetData(fmt.Sprintf(MemberCardURL, uid))
+	data, err := web.RequestDataWith(web.NewDefaultClient(), fmt.Sprintf(MemberCardURL, uid), "GET", "", ConstUA, nil)
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(binary.StringToBytes(gjson.ParseBytes(data).Get("card").Raw), &result)
+	err = json.Unmarshal(binary.StringToBytes(gjson.ParseBytes(data).Get("data.card").Raw), &result)
 	return
 }
 
@@ -134,6 +143,9 @@ func GetMedalWall(cookiecfg *CookieConfig, uid string) (result []Medal, err erro
 func GetAllGuard(mid string) (guardUser GuardUser, err error) {
 	var data []byte
 	data, err = web.GetData(AllGuardURL)
+	if err != nil {
+		return
+	}
 	m := gjson.ParseBytes(data).Get("@this").Map()
 	err = json.Unmarshal(binary.StringToBytes(m[mid].String()), &guardUser)
 	if err != nil {
@@ -145,7 +157,7 @@ func GetAllGuard(mid string) (guardUser GuardUser, err error) {
 // GetArticleInfo 用id查专栏信息
 func GetArticleInfo(id string) (card Card, err error) {
 	var data []byte
-	data, err = web.GetData(fmt.Sprintf(ArticleInfoURL, id))
+	data, err = web.RequestDataWith(web.NewDefaultClient(), fmt.Sprintf(ArticleInfoURL, id), "GET", "", ConstUA, nil)
 	if err != nil {
 		return
 	}
@@ -156,7 +168,7 @@ func GetArticleInfo(id string) (card Card, err error) {
 // GetLiveRoomInfo 用直播间id查直播间信息
 func GetLiveRoomInfo(roomID string) (card RoomCard, err error) {
 	var data []byte
-	data, err = web.GetData(fmt.Sprintf(LiveRoomInfoURL, roomID))
+	data, err = web.RequestDataWith(web.NewDefaultClient(), fmt.Sprintf(LiveRoomInfoURL, roomID), "GET", "", ConstUA, nil)
 	if err != nil {
 		return
 	}
@@ -177,5 +189,43 @@ func GetVideoInfo(id string) (card Card, err error) {
 		return
 	}
 	err = json.Unmarshal(binary.StringToBytes(gjson.ParseBytes(data).Get("data").Raw), &card)
+	return
+}
+
+// GetVideoSummary 用av或bv查看AI视频总结
+func GetVideoSummary(cookiecfg *CookieConfig, id string) (videoSummary VideoSummary, err error) {
+	var (
+		data []byte
+		card Card
+	)
+	_, err = strconv.Atoi(id)
+	if err == nil {
+		data, err = web.GetData(fmt.Sprintf(VideoInfoURL, id, ""))
+	} else {
+		data, err = web.GetData(fmt.Sprintf(VideoInfoURL, "", id))
+	}
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(binary.StringToBytes(gjson.ParseBytes(data).Get("data").Raw), &card)
+	if err != nil {
+		return
+	}
+	data, err = web.RequestDataWithHeaders(web.NewDefaultClient(), SignURL(fmt.Sprintf(VideoSummaryURL, card.BvID, card.CID, card.Owner.Mid)), "GET", func(req *http.Request) error {
+		if cookiecfg != nil {
+			cookie := ""
+			cookie, err = cookiecfg.Load()
+			if err != nil {
+				return err
+			}
+			req.Header.Add("cookie", cookie)
+		}
+		req.Header.Set("User-Agent", web.RandUA())
+		return nil
+	}, nil)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(data, &videoSummary)
 	return
 }

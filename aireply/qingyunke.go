@@ -19,7 +19,9 @@ type QYK struct {
 }
 
 const (
-	QYKURL     = "http://api.qingyunke.com/api.php?key=free&appid=0&msg=%v"
+	// QYKURL api地址
+	QYKURL = "http://api.qingyunke.com/api.php?key=free&appid=0&msg=%v"
+	// QYKBotName ...
 	QYKBotName = "菲菲"
 )
 
@@ -27,10 +29,12 @@ var (
 	qykMatchFace = regexp.MustCompile(`\{face:(\d+)\}(.*)`)
 )
 
+// NewQYK ...
 func NewQYK(u, name string, banwords ...string) *QYK {
 	return &QYK{u: u, n: name, b: banwords}
 }
 
+// String ...
 func (*QYK) String() string {
 	return "青云客"
 }
@@ -39,7 +43,7 @@ func (*QYK) String() string {
 func (q *QYK) Talk(_ int64, msg, nickname string) string {
 	msg = strings.ReplaceAll(msg, nickname, q.n)
 	u := fmt.Sprintf(q.u, url.QueryEscape(msg))
-	data, err := web.RequestDataWith(web.NewDefaultClient(), u, "GET", "", web.RandUA())
+	data, err := web.RequestDataWith(web.NewDefaultClient(), u, "GET", "", web.RandUA(), nil)
 	if err != nil {
 		return "ERROR: " + err.Error()
 	}
@@ -61,7 +65,7 @@ func (q *QYK) TalkPlain(_ int64, msg, nickname string) string {
 	msg = strings.ReplaceAll(msg, nickname, q.n)
 
 	u := fmt.Sprintf(q.u, url.QueryEscape(msg))
-	data, err := web.RequestDataWith(web.NewDefaultClient(), u, "GET", "", web.RandUA())
+	data, err := web.RequestDataWith(web.NewDefaultClient(), u, "GET", "", web.RandUA(), nil)
 	if err != nil {
 		return "ERROR: " + err.Error()
 	}

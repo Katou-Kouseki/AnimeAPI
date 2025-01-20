@@ -1,3 +1,4 @@
+// Package shindanmaker 基于 https://shindanmaker.com 的 API
 package shindanmaker
 
 import (
@@ -25,13 +26,11 @@ func Shindanmaker(id int64, name string) (string, error) {
 	// seed 使每一天的结果都不同
 	now := time.Now()
 	seed := fmt.Sprintf("%d%d%d", now.Year(), now.Month(), now.Day())
-	name = name + seed
+	name += seed
 
-	// 刷新 token 和 cookie
-	if token == "" || cookie == "" {
-		if err := refresh(); err != nil {
-			return "", err
-		}
+	// 刷新 cookie 和 token
+	if err := refresh(url); err != nil {
+		return "", err
 	}
 
 	// 组装参数
@@ -39,8 +38,9 @@ func Shindanmaker(id int64, name string) (string, error) {
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)
 	_ = writer.WriteField("_token", token)
-	_ = writer.WriteField("shindanName", name)
-	_ = writer.WriteField("hiddenName", "名無しのR")
+	_ = writer.WriteField("user_input_value_1", name)
+	_ = writer.WriteField("randname", "名無しのR")
+	_ = writer.WriteField("type", "name")
 	_ = writer.Close()
 	// 发送请求
 	req, _ := http.NewRequest("POST", url, payload)
@@ -64,18 +64,20 @@ func Shindanmaker(id int64, name string) (string, error) {
 		cookie = ""
 		return "", errors.New("无法查找到结果, 请稍后再试")
 	}
-	var output = []string{}
+	output := []string{}
 	for child := list[0].FirstChild; child != nil; child = child.NextSibling {
-		if text := xpath.InnerText(child); text != "" {
+		text := xpath.InnerText(child)
+		switch {
+		case text != "":
 			output = append(output, text)
-		} else if child.Data == "img" {
+		case child.Data == "img":
 			img := child.Attr[1].Val
 			if strings.Contains(img, "http") {
 				output = append(output, "[CQ:image,file="+img[strings.Index(img, ",")+1:]+"]")
 			} else {
 				output = append(output, "[CQ:image,file=base64://"+img[strings.Index(img, ",")+1:]+"]")
 			}
-		} else {
+		default:
 			output = append(output, "\n")
 		}
 	}
@@ -83,33 +85,33 @@ func Shindanmaker(id int64, name string) (string, error) {
 }
 
 // refresh 刷新 cookie 和 token
-func refresh() error {
+func refresh(url string) error {
 	client := &http.Client{}
-	req, _ := http.NewRequest("POST", "https://shindanmaker.com/587874", nil)
+	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	// 获取 cookie
-	if temp := resp.Header.Values("Set-Cookie"); len(temp) == 0 {
-		return errors.New("刷新 cookie 时发生错误")
-	} else {
-		cookie = temp[len(temp)-1]
-	}
-	if !strings.Contains(cookie, "_session") {
-		return errors.New("刷新 cookie 时发生错误")
-	}
-	// 获取 token
-	defer resp.Body.Close()
 	doc, err := xpath.Parse(resp.Body)
 	if err != nil {
 		return err
 	}
-	list := xpath.Find(doc, `//*[@id="shindanForm"]/input`)
-	if len(list) == 0 {
-		return errors.New("刷新 token 时发生错误")
+	if token == "" || cookie == "" {
+		if temp := resp.Header.Values("Set-Cookie"); len(temp) == 0 {
+			return errors.New("刷新 cookie 时发生错误")
+		} else if cookie = temp[len(temp)-1]; !strings.Contains(cookie, "_session") {
+			return errors.New("刷新 cookie 时发生错误")
+		}
+		// 获取 token
+		defer resp.Body.Close()
+
+		list := xpath.Find(doc, `//*[@id="shindanForm"]/input`)
+		if len(list) == 0 {
+			return errors.New("刷新 token 时发生错误")
+		}
+		token = list[0].Attr[2].Val
 	}
-	token = list[0].Attr[2].Val
 	return nil
 }
